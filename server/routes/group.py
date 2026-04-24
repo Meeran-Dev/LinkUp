@@ -75,15 +75,23 @@ def list_user_groups(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{group_id}/messages")
 def get_group_messages(group_id: int, limit: int = 50, db: Session = Depends(get_db)):
+    from models.user import User
+    
     messages = db.query(Message).filter(
         Message.group_id == group_id,
         Message.chat_type == ChatType.dm  # Using dm type for group messages
     ).order_by(Message.created_at.asc()).limit(limit).all()
     
+    # Get user info for sender names
+    user_ids = set(m.sender_id for m in messages)
+    users = db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else []
+    user_map = {u.id: u.username for u in users}
+    
     return [
         {
             "id": m.id,
             "sender_id": m.sender_id,
+            "sender_name": user_map.get(m.sender_id, "User"),
             "group_id": m.group_id,
             "content": m.content,
             "created_at": m.created_at.isoformat()
@@ -151,14 +159,23 @@ def add_group_member(group_id: int, payload: AddMemberRequest, db: Session = Dep
 
 @router.get("/{group_id}/members")
 def get_group_members(group_id: int, db: Session = Depends(get_db)):
-    """Get all members of a group"""
+    """Get all members of a group including the creator"""
+    from models.user import User
+    
+    # Get current members
     members = db.query(group_members).filter(
         group_members.c.group_id == group_id
     ).all()
     
-    from models.user import User
     user_ids = [m.user_id for m in members]
-    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    
+    # Get the group to find the creator
+    group = db.query(GroupChat).filter(GroupChat.id == group_id).first()
+    if group and group.created_by not in user_ids:
+        user_ids.append(group.created_by)
+    
+    # Fetch user details
+    users = db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else []
     
     return [
         {

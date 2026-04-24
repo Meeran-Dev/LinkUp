@@ -128,8 +128,17 @@ export const api = {
     return res.json();
   },
 
+  async getConversations(userId, token) {
+    const res = await fetch(`${API_URL}/dm/conversations/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to get conversations');
+    return res.json();
+  },
+
   async getGlobalChat(token) {
     const res = await fetch(`${API_URL}/global/messages`, {
+      method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('Failed to get global messages');

@@ -36,7 +36,7 @@ def get_global_messages(limit: int = 50, db: Session = Depends(get_db)):
     """Get global chat messages"""
     messages = db.query(Message).filter(
         Message.chat_type == ChatType.global_chat.value
-    ).order_by(Message.created_at.desc()).limit(limit).all()
+    ).order_by(Message.created_at.asc()).limit(limit).all()
     
     return [
         {

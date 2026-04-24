@@ -18,16 +18,28 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    loadConversations();
-    loadGroups();
-  }, []);
+    if (user?.user_id) {
+      loadConversations();
+      loadGroups();
+    }
+  }, [user?.user_id]);
 
   useEffect(() => {
-    if (selectedChat) {
+    if (selectedChat && user?.user_id) {
       loadMessages();
+    }
+  }, [selectedChat, activeTab, user?.user_id]);
+
+  // Load group members when a group is selected
+  useEffect(() => {
+    if (activeTab === 'groups' && selectedChat?.id) {
+      loadGroupMembers(selectedChat.id);
+    } else {
+      setGroupMembers([]);
     }
   }, [selectedChat, activeTab]);
 
@@ -43,6 +55,16 @@ export default function Chat() {
     }
   }, [searchQuery]);
 
+  const loadGroupMembers = async (groupId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const data = await api.getGroupMembers(groupId, token);
+      setGroupMembers(data);
+    } catch (err) {
+      console.error('Failed to load group members:', err);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -50,7 +72,8 @@ export default function Chat() {
   const loadConversations = async () => {
     try {
       const token = localStorage.getItem('token');
-      setConversations([]);
+      const data = await api.getConversations(user.user_id, token);
+      setConversations(data);
     } catch (err) {
       console.error('Failed to load conversations:', err);
     }
@@ -205,10 +228,10 @@ export default function Chat() {
                   className={`chat-item ${selectedChat?.id === conv.id ? 'active' : ''}`}
                   onClick={() => setSelectedChat(conv)}
                 >
-                  <div className="avatar">{conv.name[0]}</div>
+                  <div className="avatar">{conv.username?.[0]}</div>
                   <div className="chat-info">
-                    <div className="chat-name">{conv.name}</div>
-                    <div className="last-message">{conv.lastMessage}</div>
+                    <div className="chat-name">{conv.username}</div>
+                    <div className="last-message">{conv.last_message}</div>
                   </div>
                 </div>
               ))}
@@ -275,6 +298,11 @@ export default function Chat() {
                     key={index} 
                     className={`message ${msg.sender_id === user?.user_id ? 'own' : ''}`}
                   >
+                    {activeTab !== 'global' && (
+                      <div className="message-sender">
+                        {msg.sender_name || msg.sender_username || 'User'}
+                      </div>
+                    )}
                     <div className="message-content">{msg.content}</div>
                     <div className="message-time">
                       {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : ''}
@@ -302,6 +330,24 @@ export default function Chat() {
           </div>
         )}
       </main>
+
+      {activeTab === 'groups' && selectedChat && (
+        <aside className="members-sidebar">
+          <div className="members-header">
+            <h3>Members ({groupMembers.length})</h3>
+          </div>
+          <div className="members-list">
+            {groupMembers.map((member) => (
+              <div key={member.id} className="member-item">
+                <div className="member-avatar">
+                  {member.username?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="member-name">{member.username}</div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      )}
 
       {showCreateGroup && (
         <div className="modal-overlay" onClick={() => setShowCreateGroup(false)}>

@@ -56,6 +56,8 @@ def send_dm(payload: DmRequest, db: Session = Depends(get_db)):
 @router.get("/messages")
 def get_dm_history(sender_id: int, receiver_id: int, db: Session = Depends(get_db)):
     """Get direct message history between two users"""
+    from models.user import User
+    
     messages = db.query(Message).filter(
         ((Message.sender_id == sender_id) & (Message.receiver_id == receiver_id)) |
         ((Message.sender_id == receiver_id) & (Message.receiver_id == sender_id))
@@ -63,10 +65,16 @@ def get_dm_history(sender_id: int, receiver_id: int, db: Session = Depends(get_d
         Message.chat_type == ChatType.dm
     ).order_by(Message.created_at.asc()).limit(50).all()
     
+    # Get user info for sender names
+    user_ids = set(m.sender_id for m in messages)
+    users = db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else []
+    user_map = {u.id: u.username for u in users}
+    
     return [
         {
             "id": m.id,
             "sender_id": m.sender_id,
+            "sender_name": user_map.get(m.sender_id, "User"),
             "receiver_id": m.receiver_id,
             "content": m.content,
             "created_at": m.created_at.isoformat()
