@@ -1,0 +1,404 @@
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+import './Chat.css';
+
+export default function Chat() {
+  const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('dms');
+  const [conversations, setConversations] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [showNewDm, setShowNewDm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    loadConversations();
+    loadGroups();
+  }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      loadMessages();
+    }
+  }, [selectedChat, activeTab]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (searchQuery.length >= 2) {
+      searchUsers();
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadConversations = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      setConversations([]);
+    } catch (err) {
+      console.error('Failed to load conversations:', err);
+    }
+  };
+
+  const loadGroups = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const data = await api.getGroups(user.user_id, token);
+      setGroups(data);
+    } catch (err) {
+      console.error('Failed to load groups:', err);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (activeTab === 'dms' && selectedChat) {
+        const data = await api.getDirectMessages(user.user_id, selectedChat.id, token);
+        setMessages(data);
+      } else if (activeTab === 'groups' && selectedChat) {
+        const data = await api.getGroupMessages(selectedChat.id, token);
+        setMessages(data);
+      } else if (activeTab === 'global') {
+        const data = await api.getGlobalChat(token);
+        setMessages(data);
+      }
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+    }
+  };
+
+  const searchUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const data = await api.searchUsers(searchQuery, token);
+      setSearchResults(data.filter(u => u.id !== user.user_id));
+    } catch (err) {
+      console.error('Failed to search users:', err);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedChat) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (activeTab === 'dms') {
+        await api.sendDirectMessage(user.user_id, selectedChat.id, newMessage, token);
+      } else if (activeTab === 'groups') {
+        await api.sendGroupMessage(selectedChat.id, user.user_id, newMessage, token);
+      } else if (activeTab === 'global') {
+        await api.sendGlobalMessage(user.user_id, newMessage, token);
+      }
+      setNewMessage('');
+      loadMessages();
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    }
+  };
+
+  const handleCreateGroup = async (e) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.createGroup(newGroupName, user.user_id, token);
+      setNewGroupName('');
+      setShowCreateGroup(false);
+      loadGroups();
+    } catch (err) {
+      console.error('Failed to create group:', err);
+    }
+  };
+
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    if (!selectedUser || !selectedChat) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.addGroupMember(selectedChat.id, selectedUser.id, token);
+      setSelectedUser(null);
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowAddMember(false);
+    } catch (err) {
+      console.error('Failed to add member:', err);
+    }
+  };
+
+  const handleStartDm = async (e) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    const existing = conversations.find(c => c.id === selectedUser.id);
+    if (existing) {
+      setSelectedChat(existing);
+    } else {
+      const newConv = { id: selectedUser.id, name: selectedUser.username, lastMessage: '' };
+      setConversations(prev => [...prev, newConv]);
+      setSelectedChat(newConv);
+    }
+    setSelectedUser(null);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowNewDm(false);
+    setActiveTab('dms');
+  };
+
+  return (
+    <div className="chat-container">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <h2>LinkUp</h2>
+          <button className="logout-btn" onClick={logout}>Logout</button>
+        </div>
+
+        <div className="tabs">
+          <button 
+            className={`tab ${activeTab === 'dms' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('dms'); setSelectedChat(null); }}
+          >
+            DMs
+          </button>
+          <button 
+            className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('groups'); setSelectedChat(null); }}
+          >
+            Groups
+          </button>
+          <button 
+            className={`tab ${activeTab === 'global' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('global'); setSelectedChat(null); }}
+          >
+            Global
+          </button>
+        </div>
+
+        <div className="chat-list">
+          {activeTab === 'dms' && (
+            <>
+              <button className="create-group-btn" onClick={() => setShowNewDm(true)}>
+                + New DM
+              </button>
+              {conversations.map((conv) => (
+                <div 
+                  key={conv.id} 
+                  className={`chat-item ${selectedChat?.id === conv.id ? 'active' : ''}`}
+                  onClick={() => setSelectedChat(conv)}
+                >
+                  <div className="avatar">{conv.name[0]}</div>
+                  <div className="chat-info">
+                    <div className="chat-name">{conv.name}</div>
+                    <div className="last-message">{conv.lastMessage}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {activeTab === 'groups' && (
+            <>
+              <button className="create-group-btn" onClick={() => setShowCreateGroup(true)}>
+                + Create Group
+              </button>
+              {groups.map((group) => (
+                <div 
+                  key={group.id} 
+                  className={`chat-item ${selectedChat?.id === group.id ? 'active' : ''}`}
+                  onClick={() => setSelectedChat(group)}
+                >
+                  <div className="avatar group-avatar">G</div>
+                  <div className="chat-info">
+                    <div className="chat-name">{group.name}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {activeTab === 'global' && (
+            <div 
+              className={`chat-item ${selectedChat === 'global' ? 'active' : ''}`}
+              onClick={() => setSelectedChat({ id: 'global', name: 'Global Chat' })}
+            >
+              <div className="avatar group-avatar">🌍</div>
+              <div className="chat-info">
+                <div className="chat-name">Global Chat</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="user-info">
+          <div className="user-avatar">{user?.username?.[0]?.toUpperCase()}</div>
+          <div className="user-name">{user?.username}</div>
+        </div>
+      </aside>
+
+      <main className="chat-main">
+        {selectedChat ? (
+          <>
+            <div className="chat-header">
+              <div className="chat-title">{selectedChat.name}</div>
+              {activeTab === 'groups' && (
+                <button className="add-member-btn" onClick={() => setShowAddMember(true)}>
+                  + Add Member
+                </button>
+              )}
+            </div>
+
+            <div className="messages-container">
+              {messages.length === 0 ? (
+                <div className="no-messages">No messages yet. Start the conversation!</div>
+              ) : (
+                messages.map((msg, index) => (
+                  <div 
+                    key={index} 
+                    className={`message ${msg.sender_id === user?.user_id ? 'own' : ''}`}
+                  >
+                    <div className="message-content">{msg.content}</div>
+                    <div className="message-time">
+                      {msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : ''}
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <form className="message-form" onSubmit={handleSendMessage}>
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+              />
+              <button type="submit">Send</button>
+            </form>
+          </>
+        ) : (
+          <div className="no-chat-selected">
+            <h3>Welcome to LinkUp!</h3>
+            <p>Select a conversation to start chatting</p>
+          </div>
+        )}
+      </main>
+
+      {showCreateGroup && (
+        <div className="modal-overlay" onClick={() => setShowCreateGroup(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create New Group</h3>
+            <form onSubmit={handleCreateGroup}>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Group name"
+                required
+              />
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowCreateGroup(false)}>
+                  Cancel
+                </button>
+                <button type="submit">Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAddMember && (
+        <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Add Member to Group</h3>
+            <form onSubmit={handleAddMember}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by username or email..."
+                autoFocus
+              />
+              {searchResults.length > 0 && (
+                <div className="search-results">
+                  {searchResults.map((u) => (
+                    <div 
+                      key={u.id} 
+                      className={`search-result ${selectedUser?.id === u.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedUser(u)}
+                    >
+                      <div className="result-name">{u.username}</div>
+                      <div className="result-email">{u.email}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="modal-actions">
+                <button type="button" onClick={() => { setShowAddMember(false); setSelectedUser(null); setSearchQuery(''); }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={!selectedUser}>Add</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showNewDm && (
+        <div className="modal-overlay" onClick={() => setShowNewDm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Start New DM</h3>
+            <form onSubmit={handleStartDm}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by username or email..."
+                autoFocus
+              />
+              {searchResults.length > 0 && (
+                <div className="search-results">
+                  {searchResults.map((u) => (
+                    <div 
+                      key={u.id} 
+                      className={`search-result ${selectedUser?.id === u.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedUser(u)}
+                    >
+                      <div className="result-name">{u.username}</div>
+                      <div className="result-email">{u.email}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="modal-actions">
+                <button type="button" onClick={() => { setShowNewDm(false); setSelectedUser(null); setSearchQuery(''); }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={!selectedUser}>Start DM</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

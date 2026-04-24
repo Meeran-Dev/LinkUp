@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import *
 from database import Base
 
@@ -14,3 +15,4 @@ class GroupChat(Base):
     id=Column(Integer,primary_key=True)
     name=Column(String)
     created_by=Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)

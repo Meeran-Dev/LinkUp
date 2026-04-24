@@ -1,12 +1,17 @@
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends,HTTPException,status
 from sqlalchemy.orm import Session
 from database import get_db
-from models.group import GroupChat
+from models.group import GroupChat, group_members
 from models.message import Message, ChatType
 from services.message import save_message
 from schemas.group import GroupCreate, GroupResponse, GroupMessage
+from pydantic import BaseModel
 
 router=APIRouter(prefix="/groups")
+
+
+class AddMemberRequest(BaseModel):
+    user_id: int
 
 @router.post("/create", response_model=GroupResponse)
 def create_group(payload: GroupCreate, db: Session = Depends(get_db)):
@@ -20,6 +25,13 @@ def create_group(payload: GroupCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(group)
 
+    # Add creator as a member
+    db.execute(group_members.insert().values(
+        user_id=payload.creator_id,
+        group_id=group.id
+    ))
+    db.commit()
+
     return GroupResponse(
         id=group.id,
         name=group.name,
@@ -28,13 +40,45 @@ def create_group(payload: GroupCreate, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/list")
+def list_user_groups(user_id: int, db: Session = Depends(get_db)):
+    """List all groups a user is a member of"""
+    # Get groups where user is a member
+    member_groups = db.query(group_members).filter(
+        group_members.c.user_id == user_id
+    ).all()
+    
+    group_ids = [m.group_id for m in member_groups]
+    
+    # Also get groups created by user
+    created_groups = db.query(GroupChat).filter(
+        GroupChat.created_by == user_id
+    ).all()
+    
+    for g in created_groups:
+        if g.id not in group_ids:
+            group_ids.append(g.id)
+    
+    # Fetch group details
+    groups = db.query(GroupChat).filter(GroupChat.id.in_(group_ids)).all()
+    
+    return [
+        {
+            "id": g.id,
+            "name": g.name,
+            "created_by": g.created_by,
+            "created_at": g.created_at.isoformat() if g.created_at else None
+        }
+        for g in groups
+    ]
+
+
 @router.get("/{group_id}/messages")
 def get_group_messages(group_id: int, limit: int = 50, db: Session = Depends(get_db)):
-    """Get messages for a specific group"""
     messages = db.query(Message).filter(
         Message.group_id == group_id,
         Message.chat_type == ChatType.dm  # Using dm type for group messages
-    ).order_by(Message.created_at.desc()).limit(limit).all()
+    ).order_by(Message.created_at.asc()).limit(limit).all()
     
     return [
         {
@@ -50,7 +94,6 @@ def get_group_messages(group_id: int, limit: int = 50, db: Session = Depends(get
 
 @router.post("/message")
 def send_group_message(payload: GroupMessage, db: Session = Depends(get_db)):
-    """Send a message to a group"""
     # Verify group exists
     group = db.query(GroupChat).filter(GroupChat.id == payload.group_id).first()
     if not group:
@@ -71,3 +114,57 @@ def send_group_message(payload: GroupMessage, db: Session = Depends(get_db)):
         "content": msg.content,
         "created_at": msg.created_at.isoformat()
     }
+
+
+@router.post("/{group_id}/members")
+def add_group_member(group_id: int, payload: AddMemberRequest, db: Session = Depends(get_db)):
+    user_id = payload.user_id
+    # Check if group exists
+    group = db.query(GroupChat).filter(GroupChat.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user exists
+    from models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if already a member
+    existing = db.query(group_members).filter(
+        group_members.c.group_id == group_id,
+        group_members.c.user_id == user_id
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="User is already a member")
+    
+    # Add member
+    db.execute(group_members.insert().values(
+        user_id=user_id,
+        group_id=group_id
+    ))
+    db.commit()
+    
+    return {"message": "Member added successfully"}
+
+
+@router.get("/{group_id}/members")
+def get_group_members(group_id: int, db: Session = Depends(get_db)):
+    """Get all members of a group"""
+    members = db.query(group_members).filter(
+        group_members.c.group_id == group_id
+    ).all()
+    
+    from models.user import User
+    user_ids = [m.user_id for m in members]
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email
+        }
+        for u in users
+    ]

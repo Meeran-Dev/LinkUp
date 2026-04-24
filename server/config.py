@@ -1,13 +1,12 @@
-from pydantic import BaseSettings
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    REDIS_URL = os.getenv("REDIS_URL")
-    SECRET_KEY= os.getenv("SECRET_KEY")
-    ALGORITHM= os.getenv("ALGORITHM")
+    DATABASE_URL: str
+    REDIS_URL: str
+    SECRET_KEY: str
+    ALGORITHM: str
 
-settings=Settings()
+    class Config:
+        env_file = ".env"
+
+settings = Settings()

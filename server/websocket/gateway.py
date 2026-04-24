@@ -1,6 +1,6 @@
 from fastapi import APIRouter,WebSocket
-from manager import manager
-from events import publish_message
+from .manager import manager
+from .events import publish_message
 import json
 
 router=APIRouter()

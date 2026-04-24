@@ -35,7 +35,7 @@ def send_global_message(payload: GlobalMessageRequest, db: Session = Depends(get
 def get_global_messages(limit: int = 50, db: Session = Depends(get_db)):
     """Get global chat messages"""
     messages = db.query(Message).filter(
-        Message.chat_type == ChatType.global_chat
+        Message.chat_type == ChatType.global_chat.value
     ).order_by(Message.created_at.desc()).limit(limit).all()
     
     return [

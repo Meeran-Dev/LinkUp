@@ -5,7 +5,8 @@ import enum
 
 class ChatType(str,enum.Enum):
     dm="dm"
-    global_chat="global"
+    group="group"
+    global_chat="global_chat"
 
 class Message(Base):
     __tablename__="messages"

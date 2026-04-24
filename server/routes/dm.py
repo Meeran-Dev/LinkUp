@@ -53,15 +53,15 @@ def send_dm(payload: DmRequest, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/history/{user_id}/{other_id}")
-def get_dm_history(user_id: int, other_id: int, db: Session = Depends(get_db)):
+@router.get("/messages")
+def get_dm_history(sender_id: int, receiver_id: int, db: Session = Depends(get_db)):
     """Get direct message history between two users"""
     messages = db.query(Message).filter(
-        ((Message.sender_id == user_id) & (Message.receiver_id == other_id)) |
-        ((Message.sender_id == other_id) & (Message.receiver_id == user_id))
+        ((Message.sender_id == sender_id) & (Message.receiver_id == receiver_id)) |
+        ((Message.sender_id == receiver_id) & (Message.receiver_id == sender_id))
     ).filter(
         Message.chat_type == ChatType.dm
-    ).order_by(Message.created_at.desc()).limit(50).all()
+    ).order_by(Message.created_at.asc()).limit(50).all()
     
     return [
         {
@@ -73,3 +73,50 @@ def get_dm_history(user_id: int, other_id: int, db: Session = Depends(get_db)):
         }
         for m in messages
     ]
+
+
+@router.get("/conversations/{user_id}")
+def get_user_conversations(user_id: int, db: Session = Depends(get_db)):
+    """Get all DM conversations for a user"""
+    # Get all unique users the user has messaged with
+    sent_messages = db.query(Message).filter(
+        Message.sender_id == user_id,
+        Message.chat_type == ChatType.dm
+    ).all()
+    
+    received_messages = db.query(Message).filter(
+        Message.receiver_id == user_id,
+        Message.chat_type == ChatType.dm
+    ).all()
+    
+    # Get unique user IDs
+    user_ids = set()
+    for msg in sent_messages:
+        user_ids.add(msg.receiver_id)
+    for msg in received_messages:
+        user_ids.add(msg.sender_id)
+    
+    # Get user details
+    from models.user import User
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    
+    # Get last message for each conversation
+    conversations = []
+    for u in users:
+        last_msg = db.query(Message).filter(
+            ((Message.sender_id == user_id) & (Message.receiver_id == u.id)) |
+            ((Message.sender_id == u.id) & (Message.receiver_id == user_id))
+        ).filter(Message.chat_type == ChatType.dm).order_by(Message.created_at.desc()).first()
+        
+        conversations.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "last_message": last_msg.content if last_msg else None,
+            "last_message_at": last_msg.created_at.isoformat() if last_msg else None
+        })
+    
+    # Sort by last message time
+    conversations.sort(key=lambda x: x["last_message_at"] or "", reverse=True)
+    
+    return conversations

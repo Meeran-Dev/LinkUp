@@ -56,3 +56,20 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         user_id=user.id,
         username=user.username
     )
+
+
+@router.get("/search")
+def search_users(q: str, db: Session = Depends(get_db)):
+    """Search users by username or email"""
+    users = db.query(User).filter(
+        (User.username.ilike(f"%{q}%")) | (User.email.ilike(f"%{q}%"))
+    ).limit(10).all()
+    
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email
+        }
+        for u in users
+    ]
