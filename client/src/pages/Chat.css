@@ -196,12 +196,13 @@
 }
 
 .message {
-  max-width: 80%;
   padding: 12px 16px;
   border-radius: 16px;
   background: #f0f2f5;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  align-self: flex-start;
+  max-width: fit-content;
 }
 
 .message.own {
