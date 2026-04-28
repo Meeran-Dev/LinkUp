@@ -73,3 +73,11 @@ def search_users(q: str, db: Session = Depends(get_db)):
         }
         for u in users
     ]
+
+
+@router.get("/online")
+def get_online_users():
+    """Get list of online user IDs"""
+    from websocket.manager import manager
+    online_ids = manager.get_online_users()
+    return {"online_users": list(online_ids)}

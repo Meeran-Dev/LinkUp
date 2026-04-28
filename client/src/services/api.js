@@ -35,6 +35,15 @@ export const api = {
     return res.json();
   },
 
+  async getOnlineUsers(token) {
+    const res = await fetch(`${API_URL}/auth/online`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to get online users');
+    const data = await res.json();
+    return new Set(data.online_users);
+  },
+
   async getDirectMessages(senderId, receiverId, token) {
     const res = await fetch(`${API_URL}/dm/messages?sender_id=${senderId}&receiver_id=${receiverId}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -106,8 +115,8 @@ export const api = {
     return res.json();
   },
 
-  async addGroupMember(groupId, userId, token) {
-    const res = await fetch(`${API_URL}/groups/${groupId}/members`, {
+  async addGroupMember(groupId, userId, creatorId, token) {
+    const res = await fetch(`${API_URL}/groups/${groupId}/members?creator_id=${creatorId}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -156,5 +165,40 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to send global message');
     return res.json();
+  },
+
+  async deleteGroup(groupId, creatorId, token) {
+    const res = await fetch(`${API_URL}/groups/${groupId}?creator_id=${creatorId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to delete group');
+    return res.json();
+  },
+
+  async removeGroupMember(groupId, userId, creatorId, token) {
+    const res = await fetch(`${API_URL}/groups/${groupId}/members/${userId}?creator_id=${creatorId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Failed to remove member');
+    return res.json();
+  },
+
+  getPendingDMs() {
+    const stored = localStorage.getItem('pending_dms');
+    return stored ? JSON.parse(stored) : [];
+  },
+
+  savePendingDM(userId, username) {
+    const pending = this.getPendingDMs();
+    if (!pending.find(p => p.id === userId)) {
+      pending.push({ id: userId, username, last_message: '' });
+      localStorage.setItem('pending_dms', JSON.stringify(pending));
+    }
+  },
+
+  clearPendingDMs() {
+    localStorage.removeItem('pending_dms');
   },
 };

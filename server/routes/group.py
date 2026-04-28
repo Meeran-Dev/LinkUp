@@ -125,12 +125,17 @@ def send_group_message(payload: GroupMessage, db: Session = Depends(get_db)):
 
 
 @router.post("/{group_id}/members")
-def add_group_member(group_id: int, payload: AddMemberRequest, db: Session = Depends(get_db)):
+def add_group_member(group_id: int, payload: AddMemberRequest, creator_id: int, db: Session = Depends(get_db)):
+    """Add a member to a group (only the creator can add members)"""
     user_id = payload.user_id
     # Check if group exists
     group = db.query(GroupChat).filter(GroupChat.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if the requester is the group creator
+    if group.created_by != creator_id:
+        raise HTTPException(status_code=403, detail="Only the group creator can add members")
     
     # Check if user exists
     from models.user import User
@@ -181,7 +186,70 @@ def get_group_members(group_id: int, db: Session = Depends(get_db)):
         {
             "id": u.id,
             "username": u.username,
-            "email": u.email
+            "email": u.email,
+            "is_admin": u.id == group.created_by if group else False
         }
         for u in users
     ]
+
+
+@router.delete("/{group_id}")
+def delete_group(group_id: int, creator_id: int, db: Session = Depends(get_db)):
+    """Delete a group (only the creator can delete)"""
+    group = db.query(GroupChat).filter(GroupChat.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if the requester is the group creator
+    if group.created_by != creator_id:
+        raise HTTPException(status_code=403, detail="Only the group creator can delete this group")
+    
+    # Delete all messages in the group
+    db.query(Message).filter(Message.group_id == group_id).delete()
+    
+    # Delete all members
+    db.execute(group_members.delete().where(group_members.c.group_id == group_id))
+    
+    # Delete the group
+    db.delete(group)
+    db.commit()
+    
+    return {"message": "Group deleted successfully"}
+
+
+@router.delete("/{group_id}/members/{user_id}")
+def remove_group_member(group_id: int, user_id: int, creator_id: int, db: Session = Depends(get_db)):
+    """Remove a member from a group (only the creator can remove members)"""
+    from models.user import User
+    
+    # Check if group exists
+    group = db.query(GroupChat).filter(GroupChat.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if the requester is the group creator
+    if group.created_by != creator_id:
+        raise HTTPException(status_code=403, detail="Only the group creator can remove members")
+    
+    # Check if user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if user is a member
+    existing = db.query(group_members).filter(
+        group_members.c.group_id == group_id,
+        group_members.c.user_id == user_id
+    ).first()
+    
+    if not existing:
+        raise HTTPException(status_code=400, detail="User is not a member of this group")
+    
+    # Remove member
+    db.execute(group_members.delete().where(
+        group_members.c.group_id == group_id,
+        group_members.c.user_id == user_id
+    ))
+    db.commit()
+    
+    return {"message": "Member removed successfully"}

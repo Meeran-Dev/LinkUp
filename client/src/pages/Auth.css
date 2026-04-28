@@ -1,3 +1,14 @@
+:root {
+  --bg:#f4f2ff;
+  --ink:#14161e;
+  --lav:#b9b7ff;
+  --lavtext:#4a47a3;
+  --r:4px;
+  --shadow:4px 4px 0 var(--ink);
+  --ring:0 0 0 3px rgba(185,183,255,.55);
+}
+
+
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -8,24 +19,25 @@
 }
 
 .auth-card {
-  background: white;
-  border-radius: 16px;
+  background:#fff;
+  border-radius:var(--r);
   padding: 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow:var(--shadow);
+  border:2px solid var(--ink);
 }
 
 .auth-card h1 {
   text-align: center;
-  color: #667eea;
+  color: var(--lavtext);
   font-size: 2.5rem;
   margin-bottom: 8px;
 }
 
 .auth-card h2 {
   text-align: center;
-  color: #333;
+  color: var(--ink);
   font-size: 1.5rem;
   margin-bottom: 32px;
   font-weight: 500;
@@ -45,8 +57,9 @@
 .form-group input {
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid #e1e1e1;
-  border-radius: 8px;
+  box-shadow:var(--shadow);
+  border:2px solid var(--ink);
+  border-radius:var(--r);
   font-size: 1rem;
   transition: border-color 0.3s ease;
   box-sizing: border-box;
@@ -54,7 +67,6 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
 }
 
 .form-group input::placeholder {
@@ -65,7 +77,9 @@
   background: #fee;
   color: #c00;
   padding: 12px 16px;
-  border-radius: 8px;
+  border:2px solid #c00;
+  box-shadow:var(--shadow);
+  border-radius:var(--r);
   margin-bottom: 20px;
   font-size: 0.9rem;
 }
@@ -73,19 +87,21 @@
 .auth-button {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border: none;
-  border-radius: 8px;
+  border:2px solid var(--ink);
+  border-radius:var(--r);
+  background:var(--lav);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  color:var(--ink);
+  text-decoration:none;
+  box-shadow:var(--shadow);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .auth-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
 }
 
 .auth-button:disabled {
@@ -100,7 +116,7 @@
 }
 
 .auth-switch a {
-  color: #667eea;
+  color: var(--lavtext);
   text-decoration: none;
   font-weight: 600;
 }

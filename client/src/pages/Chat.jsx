@@ -19,14 +19,22 @@ export default function Chat() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [groupMembers, setGroupMembers] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (user?.user_id) {
       loadConversations();
       loadGroups();
+      loadOnlineUsers();
     }
   }, [user?.user_id]);
+
+  // Poll for online users every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(loadOnlineUsers, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (selectedChat && user?.user_id) {
@@ -65,6 +73,16 @@ export default function Chat() {
     }
   };
 
+  const loadOnlineUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const online = await api.getOnlineUsers(token);
+      setOnlineUsers(online);
+    } catch (err) {
+      console.error('Failed to load online users:', err);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -73,7 +91,19 @@ export default function Chat() {
     try {
       const token = localStorage.getItem('token');
       const data = await api.getConversations(user.user_id, token);
-      setConversations(data);
+      
+      // Also load pending DMs from localStorage
+      const pendingDMs = api.getPendingDMs();
+      
+      // Merge server conversations with pending DMs
+      const merged = [...data];
+      pendingDMs.forEach(pending => {
+        if (!merged.find(c => c.id === pending.id)) {
+          merged.push(pending);
+        }
+      });
+      
+      setConversations(merged);
     } catch (err) {
       console.error('Failed to load conversations:', err);
     }
@@ -87,6 +117,10 @@ export default function Chat() {
     } catch (err) {
       console.error('Failed to load groups:', err);
     }
+  };
+
+  const isGroupCreator = (group) => {
+    return group.created_by === user?.user_id;
   };
 
   const loadMessages = async () => {
@@ -158,13 +192,14 @@ export default function Chat() {
 
     try {
       const token = localStorage.getItem('token');
-      await api.addGroupMember(selectedChat.id, selectedUser.id, token);
+      await api.addGroupMember(selectedChat.id, selectedUser.id, user.user_id, token);
       setSelectedUser(null);
       setSearchQuery('');
       setSearchResults([]);
       setShowAddMember(false);
     } catch (err) {
       console.error('Failed to add member:', err);
+      alert(err.message || 'Failed to add member');
     }
   };
 
@@ -176,8 +211,9 @@ export default function Chat() {
     if (existing) {
       setSelectedChat(existing);
     } else {
-      const newConv = { id: selectedUser.id, name: selectedUser.username, lastMessage: '' };
+      const newConv = { id: selectedUser.id, username: selectedUser.username, last_message: '' };
       setConversations(prev => [...prev, newConv]);
+      api.savePendingDM(selectedUser.id, selectedUser.username);
       setSelectedChat(newConv);
     }
     setSelectedUser(null);
@@ -185,6 +221,34 @@ export default function Chat() {
     setSearchResults([]);
     setShowNewDm(false);
     setActiveTab('dms');
+  };
+
+  const handleDeleteGroup = async (e) => {
+    e.preventDefault();
+    if (!selectedChat || !confirm('Are you sure you want to delete this group?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.deleteGroup(selectedChat.id, user.user_id, token);
+      setSelectedChat(null);
+      loadGroups();
+    } catch (err) {
+      console.error('Failed to delete group:', err);
+      alert(err.message || 'Failed to delete group');
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!selectedChat || !confirm('Remove this member from the group?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.removeGroupMember(selectedChat.id, memberId, user.user_id, token);
+      loadGroupMembers(selectedChat.id);
+    } catch (err) {
+      console.error('Failed to remove member:', err);
+      alert(err.message || 'Failed to remove member');
+    }
   };
 
   return (
@@ -228,7 +292,10 @@ export default function Chat() {
                   className={`chat-item ${selectedChat?.id === conv.id ? 'active' : ''}`}
                   onClick={() => setSelectedChat(conv)}
                 >
-                  <div className="avatar">{conv.username?.[0]}</div>
+                  <div className="avatar">
+                    {conv.username?.[0]}
+                    <span className={`presence-dot ${onlineUsers.has(conv.id) ? 'online' : 'offline'}`}></span>
+                  </div>
                   <div className="chat-info">
                     <div className="chat-name">{conv.username}</div>
                     <div className="last-message">{conv.last_message}</div>
@@ -282,10 +349,15 @@ export default function Chat() {
           <>
             <div className="chat-header">
               <div className="chat-title">{selectedChat.name}</div>
-              {activeTab === 'groups' && (
-                <button className="add-member-btn" onClick={() => setShowAddMember(true)}>
-                  + Add Member
-                </button>
+              {activeTab === 'groups' && isGroupCreator(selectedChat) && (
+                <div className="group-actions">
+                  <button className="add-member-btn" onClick={() => setShowAddMember(true)}>
+                    + Add Member
+                  </button>
+                  <button className="delete-group-btn" onClick={handleDeleteGroup}>
+                    Delete Group
+                  </button>
+                </div>
               )}
             </div>
 
@@ -341,8 +413,21 @@ export default function Chat() {
               <div key={member.id} className="member-item">
                 <div className="member-avatar">
                   {member.username?.[0]?.toUpperCase() || '?'}
+                  <span className={`presence-dot ${onlineUsers.has(member.id) ? 'online' : 'offline'}`}></span>
                 </div>
-                <div className="member-name">{member.username}</div>
+                <div className="member-name">
+                  {member.username}
+                  {member.is_admin && <span className="admin-tag">Admin</span>}
+                </div>
+                {isGroupCreator(selectedChat) && member.id !== user?.user_id && (
+                  <button 
+                    className="remove-member-btn"
+                    onClick={() => handleRemoveMember(member.id)}
+                    title="Remove member"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </div>
