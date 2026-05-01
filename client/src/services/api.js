@@ -185,20 +185,23 @@ export const api = {
     return res.json();
   },
 
-  getPendingDMs() {
-    const stored = localStorage.getItem('pending_dms');
+  getPendingDMs(currentUserId) {
+    if (!currentUserId) return [];
+    const stored = localStorage.getItem(`pending_dms_${currentUserId}`);
     return stored ? JSON.parse(stored) : [];
   },
 
-  savePendingDM(userId, username) {
-    const pending = this.getPendingDMs();
-    if (!pending.find(p => p.id === userId)) {
-      pending.push({ id: userId, username, last_message: '' });
-      localStorage.setItem('pending_dms', JSON.stringify(pending));
+  savePendingDM(currentUserId, targetUserId, username) {
+    if (!currentUserId || !targetUserId) return;
+    const pending = this.getPendingDMs(currentUserId);
+    if (!pending.find(p => p.id === targetUserId)) {
+      pending.push({ id: targetUserId, username, last_message: '' });
+      localStorage.setItem(`pending_dms_${currentUserId}`, JSON.stringify(pending));
     }
   },
 
-  clearPendingDMs() {
-    localStorage.removeItem('pending_dms');
+  clearPendingDMs(currentUserId) {
+    if (!currentUserId) return;
+    localStorage.removeItem(`pending_dms_${currentUserId}`);
   },
 };

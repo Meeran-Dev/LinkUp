@@ -93,7 +93,7 @@ export default function Chat() {
       const data = await api.getConversations(user.user_id, token);
       
       // Also load pending DMs from localStorage
-      const pendingDMs = api.getPendingDMs();
+      const pendingDMs = api.getPendingDMs(user.user_id);
       
       // Merge server conversations with pending DMs
       const merged = [...data];
@@ -213,7 +213,7 @@ export default function Chat() {
     } else {
       const newConv = { id: selectedUser.id, username: selectedUser.username, last_message: '' };
       setConversations(prev => [...prev, newConv]);
-      api.savePendingDM(selectedUser.id, selectedUser.username);
+      api.savePendingDM(user.user_id, selectedUser.id, selectedUser.username);
       setSelectedChat(newConv);
     }
     setSelectedUser(null);
