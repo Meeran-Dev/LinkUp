@@ -3,7 +3,7 @@
   height: 100vh;
   height: 100svh;
   height: 100dvh;
-  background: linear-gradient(145deg, #e8e1ff 0%, #f4f2ff 35%, #ebe7ff 100%);
+  background: var(--gradient-chat);
   gap: 14px;
   padding: 14px;
   overflow: hidden;
@@ -66,7 +66,7 @@
 .delete-group-btn:hover,
 .remove-member-btn:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--ink);
+  box-shadow: 6px 6px 0 var(--shadow-color);
 }
 
 .logout-btn {
@@ -81,7 +81,7 @@
   padding: 12px;
   gap: 8px;
   border-bottom: 2px solid var(--ink);
-  background: #f8f5ff;
+  background: var(--surface-muted);
 }
 
 .tab {
@@ -119,8 +119,8 @@
 
 .chat-item:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--ink);
-  background: #f7f3ff;
+  box-shadow: 6px 6px 0 var(--shadow-color);
+  background: var(--surface-hover);
 }
 
 .chat-item.active {
@@ -193,6 +193,7 @@
   width: 100%;
   padding: 11px;
   background: #ece5ff;
+  color: #14161e;
   font-size: 0.9rem;
   margin-bottom: 12px;
   font-weight: 600;
@@ -203,7 +204,7 @@
   border-top: 2px solid var(--ink);
   display: flex;
   align-items: center;
-  background: #f8f5ff;
+  background: var(--surface-muted);
 }
 
 .user-avatar {
@@ -233,7 +234,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  background: #f8f5ff;
+  background: var(--surface-muted);
 }
 
 .chat-title {
@@ -249,7 +250,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(160deg, #fdfcff 0%, #f6f2ff 100%);
+  background: var(--gradient-messages);
   min-height: 0;
 }
 
@@ -258,7 +259,7 @@
   border: 2px solid var(--ink);
   box-shadow: var(--shadow);
   border-radius: var(--r);
-  background: #ffffff;
+  background: var(--surface);
   word-wrap: break-word;
   overflow-wrap: break-word;
   align-self: flex-start;
@@ -285,7 +286,7 @@
   border-top: 2px solid var(--ink);
   display: flex;
   gap: 10px;
-  background: #f8f5ff;
+  background: var(--surface-muted);
 }
 
 .message-form input,
@@ -293,7 +294,7 @@
   border: 2px solid var(--ink);
   border-radius: var(--r);
   box-shadow: var(--shadow);
-  background: #fff;
+  background: var(--input-bg);
   color: var(--ink);
   outline: none;
 }
@@ -374,7 +375,7 @@
 }
 
 .modal-actions button:first-child {
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .modal-actions button:last-child,
@@ -435,7 +436,7 @@
 .members-header {
   padding: 18px;
   border-bottom: 2px solid var(--ink);
-  background: #f8f5ff;
+  background: var(--surface-muted);
 }
 
 .members-header h3 {
@@ -496,7 +497,7 @@
   padding: 10px 12px;
   cursor: pointer;
   border-bottom: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
 }
 
 .search-result:last-child {

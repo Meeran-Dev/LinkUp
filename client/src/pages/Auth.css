@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #e4ddff 0%, #cabdff 45%, #b4a4ff 100%);
+  background: var(--gradient-auth);
   padding: 20px;
 }
 
@@ -50,7 +50,7 @@
   border: 2px solid var(--ink);
   border-radius: var(--r);
   font-size: 1rem;
-  background: #fbfaff;
+  background: var(--input-bg);
   color: var(--ink);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
@@ -63,7 +63,7 @@
 }
 
 .form-group input::placeholder {
-  color: #9496a8;
+  color: var(--ink-soft);
 }
 
 .error-message {
