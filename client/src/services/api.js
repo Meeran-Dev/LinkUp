@@ -1,4 +1,4 @@
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = 'https://linkup-43u1.onrender.com';
 
 export const api = {
   async register(username, email, password) {
