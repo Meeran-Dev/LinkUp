@@ -1,6 +1,7 @@
 from fastapi import APIRouter,WebSocket
 from .manager import manager
-from .events import publish_message
+from database import SessionLocal
+from models.group import group_members
 import json
 
 router=APIRouter()
@@ -20,6 +21,14 @@ async def websocket_chat(
       user_id,
       "global_chat"
     )
+
+    db = SessionLocal()
+    try:
+        groups = db.query(group_members.c.group_id).filter(group_members.c.user_id == user_id).all()
+        for group in groups:
+            manager.join_room(user_id, f"group:{group.group_id}")
+    finally:
+        db.close()
 
     try:
       while True:

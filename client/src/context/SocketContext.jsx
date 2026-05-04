@@ -9,9 +9,7 @@ export function SocketProvider({ children }) {
   const { user } = useAuth();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [directMessages, setDirectMessages] = useState({});
+  const [latestEvent, setLatestEvent] = useState(null);
 
   useEffect(() => {
       if (!user?.user_id) return;
@@ -28,39 +26,24 @@ export function SocketProvider({ children }) {
 
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        setLatestEvent(data);
+      };
 
-        if (data.type === 'new_message') {
-          setMessages((prev) => [...prev, data]);
-        }
-
-        if (data.type === 'group_message') {
-          setGroups((prev) => [...prev, data]);
-        }
-
-        if (data.type === 'dm_message') {
-        setDirectMessages((prev) => {
-          const key = `${data.sender_id}-${data.receiver_id}`;
-          const existing = prev[key] || [];
-          return { ...prev, [key]: [...existing, data] };
-        });
-      }
-    };
-
-    socketRef.current = socket;
+      socketRef.current = socket;
 
     return () => {
       socket.close();
     };
   }, [user?.user_id]);
 
-  const sendMessage = (type, payload) => {
-    if (socketRef.current) {
-      socketRef.current.emit(type, payload);
+  const sendMessage = (payload) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(payload));
     }
   };
 
   return (
-    <SocketContext.Provider value={{ connected, messages, groups, directMessages, sendMessage }}>
+    <SocketContext.Provider value={{ connected, latestEvent, sendMessage }}>
       {children}
     </SocketContext.Provider>
   );

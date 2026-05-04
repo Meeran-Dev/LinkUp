@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { api } from '../services/api';
 import './Chat.css';
 
 export default function Chat() {
   const { user, logout } = useAuth();
+  const { latestEvent } = useSocket();
   const [activeTab, setActiveTab] = useState('dms');
   const [conversations, setConversations] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -50,6 +52,36 @@ export default function Chat() {
       setGroupMembers([]);
     }
   }, [selectedChat, activeTab]);
+
+  useEffect(() => {
+    if (!latestEvent || !selectedChat) return;
+
+    const isDuplicate = messages.some((msg) => msg.id === latestEvent.id);
+    if (isDuplicate) return;
+
+    if (activeTab === 'global' && latestEvent.chat_type === 'global_chat') {
+      setMessages((prev) => [...prev, latestEvent]);
+      return;
+    }
+
+    if (
+      activeTab === 'groups' &&
+      latestEvent.chat_type === 'group' &&
+      latestEvent.group_id === selectedChat.id
+    ) {
+      setMessages((prev) => [...prev, latestEvent]);
+      return;
+    }
+
+    if (
+      activeTab === 'dms' &&
+      latestEvent.chat_type === 'dm' &&
+      ((latestEvent.sender_id === selectedChat.id && latestEvent.receiver_id === user.user_id) ||
+        (latestEvent.sender_id === user.user_id && latestEvent.receiver_id === selectedChat.id))
+    ) {
+      setMessages((prev) => [...prev, latestEvent]);
+    }
+  }, [latestEvent, selectedChat, activeTab, user?.user_id, messages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -159,13 +191,16 @@ export default function Chat() {
       const token = localStorage.getItem('token');
       if (activeTab === 'dms') {
         await api.sendDirectMessage(user.user_id, selectedChat.id, newMessage, token);
+        setConversations((prev) => prev.map((conv) =>
+          conv.id === selectedChat.id ? { ...conv, last_message: newMessage } : conv
+        ));
       } else if (activeTab === 'groups') {
         await api.sendGroupMessage(selectedChat.id, user.user_id, newMessage, token);
       } else if (activeTab === 'global') {
         await api.sendGlobalMessage(user.user_id, newMessage, token);
       }
       setNewMessage('');
-      loadMessages();
+      await loadMessages();
     } catch (err) {
       console.error('Failed to send message:', err);
     }
@@ -193,6 +228,7 @@ export default function Chat() {
     try {
       const token = localStorage.getItem('token');
       await api.addGroupMember(selectedChat.id, selectedUser.id, user.user_id, token);
+      await loadGroupMembers(selectedChat.id);
       setSelectedUser(null);
       setSearchQuery('');
       setSearchResults([]);

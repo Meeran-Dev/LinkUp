@@ -4,6 +4,7 @@ from database import get_db
 from models.message import Message, ChatType
 from services.message import save_message
 from services.notification import create_notification
+from websocket.events import publish_message
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/dm", tags=["dm"])
@@ -43,6 +44,17 @@ def send_dm(payload: DmRequest, db: Session = Depends(get_db)):
         "new_message",
         {"sender_id": payload.sender_id, "content": payload.content}
     )
+
+    from models.user import User
+    sender = db.query(User).filter(User.id == payload.sender_id).first()
+    publish_message({
+        "sender_id": msg.sender_id,
+        "receiver_id": msg.receiver_id,
+        "chat_type": msg.chat_type.value,
+        "content": msg.content,
+        "created_at": msg.created_at.isoformat(),
+        "sender_name": sender.username if sender else "User"
+    })
     
     return {
         "id": msg.id,

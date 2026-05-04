@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.message import Message, ChatType
 from services.message import save_message
+from websocket.events import publish_message
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/global", tags=["global"])
@@ -22,6 +23,16 @@ def send_global_message(payload: GlobalMessageRequest, db: Session = Depends(get
         "content": payload.content
     }
     msg = save_message(db, message_data)
+
+    from models.user import User
+    sender = db.query(User).filter(User.id == payload.sender_id).first()
+    publish_message({
+        "sender_id": msg.sender_id,
+        "chat_type": msg.chat_type.value,
+        "content": msg.content,
+        "created_at": msg.created_at.isoformat(),
+        "sender_name": sender.username if sender else "User"
+    })
     
     return {
         "id": msg.id,
