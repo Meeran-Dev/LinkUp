@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = 'http://localhost:8000';
+const SOCKET_URL = 'wss://linkup-43u1.onrender.com';
 
 export function SocketProvider({ children }) {
   const { user } = useAuth();

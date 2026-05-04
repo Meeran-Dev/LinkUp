@@ -1,4 +1,4 @@
-const API_URL = 'wss://linkup-43u1.onrender.com';
+const API_URL = 'https://linkup-43u1.onrender.com';
 
 export const api = {
   async register(username, email, password) {
